@@ -14,7 +14,10 @@
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tree-sitter-cli": "^0.26.8",
+    "tree-sitter-java": "^0.23.5",
+    "web-tree-sitter": "^0.26.8"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -6,6 +6,7 @@ import { localAnalyze } from "@/utils/analyzer";
 
 const TEMPLATES = [
   {
+    category: "Basics",
     name: "evenOdd()",
     code: `public void evenOdd(int[] arr) {
     for (int i = 0; i < arr.length; i++) {
@@ -21,6 +22,7 @@ const TEMPLATES = [
     explanation: "Linear iteration. No auxiliary scaling memory."
   },
   {
+    category: "Dynamic Programming",
     name: "maxSubArray()",
     code: `public int maxSubArray(int[] nums) {
     int currMax = nums[0];
@@ -36,6 +38,7 @@ const TEMPLATES = [
     explanation: "Kadane's sweeps array once using constant state trackers."
   },
   {
+    category: "Searching",
     name: "binarySearch()",
     code: `public int binarySearch(int arr[], int x) {
     int l = 0, r = arr.length - 1;
@@ -52,6 +55,7 @@ const TEMPLATES = [
     explanation: "Search space halves each loop. State relies on pointers."
   },
   {
+    category: "Sorting",
     name: "mergeSort()",
     code: `public void mergeSort(int[] arr, int[] temp, int left, int right) {
     if (left >= right) return;
@@ -73,6 +77,7 @@ const TEMPLATES = [
     explanation: "Divides recursively and merges. Allocates temporary arrays."
   },
   {
+    category: "Sorting",
     name: "bubbleSort()",
     code: `public void bubbleSort(int[] arr) {
     for (int i = 0; i < arr.length; i++) {
@@ -90,6 +95,7 @@ const TEMPLATES = [
     explanation: "Nested element iteration. Entirely in-place swapping."
   },
   {
+    category: "Arrays",
     name: "threeSum()",
     code: `public List<List<Integer>> threeSum(int[] nums) {
     Arrays.sort(nums);
@@ -108,17 +114,137 @@ const TEMPLATES = [
             }
         }
     }
-    return res`,
+    return res;
+}`,
     timeComplexity: "O(N^2)",
     spaceComplexity: "O(1) to O(N)",
     explanation: "Outer track and inner two-pointers dominate sorting cost."
+  },
+  {
+    category: "Sorting",
+    name: "quickSort()",
+    code: `public void quickSort(int[] arr, int low, int high) {
+    if (low < high) {
+        int pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}
+private int partition(int[] arr, int low, int high) {
+    int pivot = arr[high];
+    int i = (low - 1);
+    for (int j = low; j < high; j++) {
+        if (arr[j] < pivot) {
+            i++;
+            int temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+    }
+    int temp = arr[i+1];
+    arr[i+1] = arr[high];
+    arr[high] = temp;
+    return i + 1;
+}`,
+    timeComplexity: "O(N log N) / O(N^2)",
+    spaceComplexity: "O(log N)",
+    explanation: "Recursive partitioning. Average performance is linear-logarithmic."
+  },
+  {
+    category: "Graphs",
+    name: "depthFirstSearch()",
+    code: `public void dfs(int v, boolean[] visited, List<List<Integer>> adj) {
+    visited[v] = true;
+    for (int neighbor : adj.get(v)) {
+        if (!visited[neighbor]) {
+            dfs(neighbor, visited, adj);
+        }
+    }
+}`,
+    timeComplexity: "O(V + E)",
+    spaceComplexity: "O(V)",
+    explanation: "Traverses edges and vertices. Recursion stack mirrors depth."
+  },
+  {
+    category: "Graphs",
+    name: "breadthFirstSearch()",
+    code: `public void bfs(int start, List<List<Integer>> adj) {
+    boolean[] visited = new boolean[adj.size()];
+    Queue<Integer> queue = new LinkedList<>();
+    visited[start] = true;
+    queue.add(start);
+    while (!queue.isEmpty()) {
+        int v = queue.poll();
+        for (int n : adj.get(v)) {
+            if (!visited[n]) {
+                visited[n] = true;
+                queue.add(n);
+            }
+        }
+    }
+}`,
+    timeComplexity: "O(V + E)",
+    spaceComplexity: "O(V)",
+    explanation: "Level-order traversal using a queue to manage discovery."
+  },
+  {
+    category: "Dynamic Programming",
+    name: "fibonacciDP()",
+    code: `public int fib(int n) {
+    if (n <= 1) return n;
+    int[] dp = new int[n + 1];
+    dp[0] = 0; dp[1] = 1;
+    for (int i = 2; i <= n; i++) {
+        dp[i] = dp[i-1] + dp[i-2];
+    }
+    return dp[n];
+}`,
+    timeComplexity: "O(N)",
+    spaceComplexity: "O(N)",
+    explanation: "Bottom-up approach storing intermediate results in a table."
+  },
+  {
+    category: "Math",
+    name: "sieve()",
+    code: `public void sieve(int n) {
+    boolean[] prime = new boolean[n + 1];
+    for (int i = 0; i <= n; i++) prime[i] = true;
+    for (int p = 2; p * p <= n; p++) {
+        if (prime[p]) {
+            for (int i = p * p; i <= n; i += p)
+                prime[i] = false;
+        }
+    }
+}`,
+    timeComplexity: "O(N log log N)",
+    spaceComplexity: "O(N)",
+    explanation: "Iteratively marks multiples of primes. Very efficient for range density."
+  },
+  {
+    category: "Math",
+    name: "matrixMult()",
+    code: `public void multiply(int[][] A, int[][] B, int[][] C, int N) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            C[i][j] = 0;
+            for (int k = 0; k < N; k++) {
+                C[i][j] += A[i][k] * B[k][j];
+            }
+        }
+    }
+}`,
+    timeComplexity: "O(N^3)",
+    spaceComplexity: "O(1)",
+    explanation: "Classic triple-nested iteration for row-column dot products."
   }
 ];
 
 export default function Home() {
   const [code, setCode] = useState<string>("// Paste your code here...\n\n\n");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [result, setResult] = useState<{
+
     detectedLanguage?: string;
     timeComplexity?: string;
     spaceComplexity?: string;
@@ -171,13 +297,9 @@ export default function Home() {
 
     try {
       // Execute the native parsing engine
-      const data = localAnalyze(code);
-      
-      // Artificial delay to allow UI loading spinner cycle to spin, feels more substantial
-      setTimeout(() => {
-        setResult(data);
-        setIsLoading(false);
-      }, 600);
+      const data = await localAnalyze(code);
+      setResult(data);
+      setIsLoading(false);
     } catch (error) {
       console.error(error);
       setResult({ error: "Local AST parser failed." });
@@ -187,86 +309,125 @@ export default function Home() {
 
   return (
     <>
-
-
-      <div className="app-container">
-        <header>
-          <h1>Complexity Analyzer</h1>
+      <div className={`dashboard-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+        
+        {/* Mobile Header */}
+        <header className="mobile-header">
+          <div className="mobile-brand">Complexity Analyzer</div>
+          <button 
+            className="mobile-toggle"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            aria-label="Toggle Menu"
+          >
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
         </header>
 
-        <div className="templates-container">
-          {TEMPLATES.map((t) => (
-            <button 
-              key={t.name}
-              className="template-pill"
-              onClick={() => { setCode(t.code); setResult(null); }}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
+        {/* Sidebar Left */}
+        <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-header">
+            <h1 className="brand-text">Complexity Analyzer</h1>
+          </div>
+          <div className="sidebar-section">
+            <h3>Templates</h3>
+            <div className="templates-list">
+              {TEMPLATES.map((t) => (
+                <button 
+                  key={t.name}
+                  className={`template-item ${code.trim() === t.code.trim() ? 'active' : ''}`}
+                  onClick={() => { 
+                    setCode(t.code); 
+                    setResult(null); 
+                    setIsSidebarOpen(false); // Auto-close on mobile
+                  }}
+                >
+                  <span className="template-name">{t.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
 
-        <div className="editor-wrapper">
-          <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-            <Editor
-              height="100%"
-              theme="screenshot-theme"
-              defaultLanguage="java"
-              value={code}
-              onChange={(value) => setCode(value || "")}
-              beforeMount={handleEditorBeforeMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 20,
-                lineHeight: 34,
-                fontFamily: "'Geist Mono', 'Fira Code', 'Menlo', 'Consolas', monospace",
-                padding: { top: 20 },
-                scrollBeyondLastLine: false,
-                wordWrap: "on",
-                renderValidationDecorations: "off", // REMOVES ALL RED SQUIGGLY ERROR LINES
-                quickSuggestions: false, // Disables autocomplete popups to make it feel "normal"
-                hover: { enabled: false }, // Disables hover boxes
-                contextmenu: false, // Disables context menu
-                hideCursorInOverviewRuler: true,
-                overviewRulerLanes: 0,
-                lineNumbersMinChars: 4,
-                stickyScroll: { enabled: false }
-              }}
-            />
+        {/* Mobile Backdrop */}
+        {isSidebarOpen && (
+          <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} />
+        )}
+
+        {/* Main Interface Right */}
+
+        <main className="main-content">
+          <div className="editor-card">
+              <Editor
+                height="100%"
+                theme="screenshot-theme"
+                defaultLanguage="java"
+                value={code}
+                onChange={(value) => setCode(value || "")}
+                beforeMount={handleEditorBeforeMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 18,
+                  lineHeight: 30,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  padding: { top: 24, bottom: 24 },
+                  scrollBeyondLastLine: false,
+                  wordWrap: "on",
+                  renderValidationDecorations: "off",
+                  quickSuggestions: false,
+                  hover: { enabled: false },
+                  contextmenu: false,
+                  hideCursorInOverviewRuler: true,
+                  overviewRulerLanes: 0,
+                  lineNumbersMinChars: 4,
+                  stickyScroll: { enabled: false }
+                }}
+              />
           </div>
           
-          <div className="bottom-bar">
+          <div className="results-panel">
+            <div className="results-header">
+              <h4>Scan Diagnostics</h4>
+              <button 
+                className="analyze-action" 
+                onClick={handleAnalyze}
+                disabled={isLoading}
+              >
+                {isLoading ? "Running Analysis..." : "Analyze Core"}
+              </button>
+            </div>
+
             {result ? (
               result.error ? (
-                <div className="error-msg" style={{ margin: 0, flex: 1 }}>{result.error}</div>
+                <div className="error-banner">{result.error}</div>
               ) : (
-                <div style={{ display: 'flex', flex: 1, gap: '16px', alignItems: 'center' }}>
-                  <div className="result-column">
-                    <div className="result-col-header">Time (Big O)</div>
-                    <div className="result-col-value" style={{ color: '#a78bfa' }}>{result.timeComplexity}</div>
+                <div className="results-stats">
+                  <div className="status-module">
+                    <span className="status-label">Time Complexity</span>
+                    <span className="status-value" style={{ color: "var(--primary)" }}>{result.timeComplexity}</span>
                   </div>
                   
-                  <div className="result-reasoning">{result.explanation}</div>
+                  <div className="status-module">
+                    <span className="status-label">Space Complexity</span>
+                    <span className="status-value" style={{ color: "var(--info)" }}>{result.spaceComplexity}</span>
+                  </div>
 
-                  <div className="result-column">
-                    <div className="result-col-header">Space (Big O)</div>
-                    <div className="result-col-value" style={{ color: '#60a5fa' }}>{result.spaceComplexity}</div>
+                  <div className="status-explanation">
+                    <span className="status-label" style={{ display: 'block', marginBottom: '8px' }}>Analysis Summary</span>
+                    {result.explanation}
                   </div>
                 </div>
               )
             ) : (
-              <div style={{ flex: 1 }} />
+              <div style={{ color: "var(--text-muted)", fontSize: "0.95rem", padding: "10px 0" }}>
+                Select a template or write custom code to begin structural complexity analysis.
+              </div>
             )}
-            
-            <button 
-              className="analyze-button" 
-              onClick={handleAnalyze}
-              disabled={isLoading}
-            >
-              {isLoading ? "Analyzing..." : "Analyze"}
-            </button>
           </div>
-        </div>
+        </main>
       </div>
     </>
   );

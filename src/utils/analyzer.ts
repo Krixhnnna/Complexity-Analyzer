@@ -1,60 +1,111 @@
-export function localAnalyze(code: string) {
-    // 1. Sanitize the code to prevent false triggers in comments/strings
-    let cleanCode = code
-        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
-        .replace(/\/\/.*/g, '')           // Remove single-line comments
-        .replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '""'); // Clear string literals
+let parser: any | null = null;
 
-    // Pre-process: Normalize brace-less loops (e.g., 'for (...) l = Math.max(l, x);')
-    cleanCode = cleanCode.replace(/for\s*\(([^)]+)\)/g, (match, p1) => `for(${p1.replace(/;/g, ',')})`);
-    cleanCode = cleanCode.replace(/(for\s*\([^)]+\)|while\s*\([^)]+\))\s*([^{][^;]*;)/g, '$1 { $2 }');
-
-    let maxLoopDepth = 0;
-    let currentDepth = 0;
-
-    // Remove code safely into an array of structural tokens
-    // We only care about words like 'for', 'while', '{', and '}'
-    const tokens = cleanCode.match(/for\b|while\b|\{|\}/g) || [];
-
-    const loopStack: number[] = [];
-    let braceLevel = 0;
-
-    for (const token of tokens) {
-        if (token === '{') {
-            braceLevel++;
-        } else if (token === '}') {
-            // If the closing brace belongs to a loop we tracked, pop it
-            if (loopStack.length > 0 && loopStack[loopStack.length - 1] === braceLevel) {
-                loopStack.pop();
-                currentDepth--;
-            }
-            braceLevel--;
-        } else if (token === 'for' || token === 'while') {
-            // A loop has started. It will expect to be bound to the very next opening brace.
-            // If it doesn't have braces, this heuristic still generally detects it loosely.
-            currentDepth++;
-            loopStack.push(braceLevel + 1); // Bind it conceptually to the inner brace level
-            if (currentDepth > maxLoopDepth) {
-                maxLoopDepth = currentDepth;
-            }
+export async function localAnalyze(code: string) {
+    try {
+        if (!parser) {
+            // @ts-ignore
+            const WebTreeSitter = await import(/* webpackIgnore: true */ '/web-tree-sitter.js');
+            const Parser = WebTreeSitter.Parser;
+            await Parser.init({
+                locateFile(path: string, prefix: string) {
+                    if (path === 'tree-sitter.wasm' || path === 'web-tree-sitter.wasm') {
+                        return '/web-tree-sitter.wasm';
+                    }
+                    return prefix + path;
+                }
+            });
+            parser = new Parser();
+            const lang = await WebTreeSitter.Language.load('/tree-sitter-java.wasm');
+            parser.setLanguage(lang);
         }
+    } catch (e: any) {
+        console.error("WASM load error", e);
+        return { error: `Tree-Sitter load error: ${e.message || String(e)}` };
     }
 
-    // Keyword detection
-    const hasSort = /\.sort\b|Arrays\.sort|Collections\.sort|qsort/.test(cleanCode);
-    // Rough logarithmic math detector
-    const hasLogarithmic = /\/\s*2|>>\s*1|\*\s*2|<<\s*1/.test(cleanCode);
-    const hasDynamicAllocation = /new\s+[a-zA-Z]+\[|\.push\(|\.add\(|new\s+Array|malloc|new\s+(Array)?List/.test(cleanCode);
+    if (!parser) return { error: "Tree-Sitter failed to load." };
+
+    const tree = parser.parse(code);
+
+    let maxLoopDepth = 0;
+    let hasLogarithmic = false;
+    let hasDynamicAllocation = false;
+    let isRecursive = false;
+
+    // A helper to traverse the AST nodes
+    const traverse = (node: any, currentLoopDepth: number) => {
+        let nextDepth = currentLoopDepth;
+
+        // Check for loop nodes
+        if (node.type === 'for_statement' || node.type === 'while_statement' || node.type === 'do_statement' || node.type === 'enhanced_for_statement') {
+            nextDepth = currentLoopDepth + 1;
+            if (nextDepth > maxLoopDepth) {
+                maxLoopDepth = nextDepth;
+            }
+
+            // Check if update is log based (e.g. i *= 2, i /= 2, i = i >> 1, / 2)
+            const logRegex = /\/=\s*2|\*=\s*2|>>\s*1|<<\s*1|\/\s*2/;
+            if (node.type === 'for_statement') {
+                const updateNodes = node.childForFieldName('update');
+                if (updateNodes && logRegex.test(updateNodes.text)) {
+                    hasLogarithmic = true;
+                }
+            } else {
+                // For while_statement check body for logarithmic updates
+                const body = node.childForFieldName('body');
+                if (body && logRegex.test(body.text)) {
+                    hasLogarithmic = true;
+                }
+            }
+        }
+
+        // Check for recursive method calls
+        if (node.type === 'method_declaration') {
+            const nameNode = node.childForFieldName('name');
+            if (nameNode) {
+                const methodName = nameNode.text;
+                // Deep scan body for method_invocation of this name
+                const checkRecursion = (n: any) => {
+                    if (n.type === 'method_invocation') {
+                        const callName = n.childForFieldName('name') || n.child(0);
+                        if (callName && callName.text === methodName) {
+                            isRecursive = true;
+                        }
+                    }
+                    n.children.forEach(checkRecursion);
+                };
+                const body = node.childForFieldName('body');
+                if (body) checkRecursion(body);
+            }
+        }
+
+        // Check dynamic allocation
+        if (node.type === 'object_creation_expression' || node.type === 'array_creation_expression') {
+            const txt = node.text;
+            // E.g., new int[arr.length], new ArrayList(...)
+            // We can heuristically say space is N unless it's obviously constant like new int[10]
+            if (!/new\s+(int|long|char|double|float|boolean|short|byte)\[\s*\d+\s*\]/.test(txt)) {
+                hasDynamicAllocation = true;
+            }
+        }
+
+        node.children.forEach((child: any) => traverse(child, nextDepth));
+    };
+
+    traverse(tree.rootNode, 0);
+
+    const hasSort = /\.sort\b|Arrays\.sort|Collections\.sort/.test(code);
 
     // Compute heuristical Time Complexity Baseline
     let time = "O(1)";
     if (hasSort) {
         time = maxLoopDepth > 0 ? `O(N^${maxLoopDepth} log N)` : "O(N log N)";
     } else if (maxLoopDepth > 0) {
-        if (maxLoopDepth === 1 && hasLogarithmic && !cleanCode.includes('for')) {
+        if (maxLoopDepth === 1 && hasLogarithmic) {
             time = "O(log N)";
-        } else if (hasLogarithmic && maxLoopDepth <= 2) {
-            time = "O(N log N)"; // typical structural binary search inside loop, or mergeSort 
+        } else if (hasLogarithmic) {
+            // Support any depth with logarithmic reduction gracefully mapped.
+            time = maxLoopDepth === 2 ? "O(N log N)" : `O(N^${maxLoopDepth - 1} log N)`;
         } else {
             time = maxLoopDepth === 1 ? "O(N)" : `O(N^${maxLoopDepth})`;
         }
@@ -68,22 +119,33 @@ export function localAnalyze(code: string) {
         space = "O(log N)"; 
     }
 
-    // If recursive calls match the function name, we can guess it's a recursive engine.
-    // We will heavily lean into O(N log N) if recursion + halving is found.
-    const isRecursive = /\b(?!(?:for|while|if|switch|catch|return)\b)(\w+)\s*\([\s\S]*?\)\s*\{[\s\S]*?\b\1\s*\(/.test(cleanCode);
+    // Refined recursive detection
     if (isRecursive && time === "O(1)") {
-        time = hasLogarithmic ? "O(log N)" : "O(N)"; // basic recursion baseline
+        // Did we halve variables?
+        time = hasLogarithmic || code.includes(' / 2') ? "O(log N)" : "O(N)"; 
+        if (time === "O(N)" && maxLoopDepth > 0) {
+            time = "O(N^2)"; 
+        }
+        if (time === "O(log N)" && maxLoopDepth > 0) {
+            time = "O(N log N)"; 
+        }
     }
 
-    // Structure the reasoning
-    let reasoning = `Local parser detected ${maxLoopDepth} nested loop(s).`;
-    if (hasSort) reasoning += ` A sorting operation heavily influenced time complexity.`;
-    if (hasDynamicAllocation) reasoning += ` Dynamic arrays/lists were found, mapping scaling auxiliary space.`;
-    if (isRecursive) reasoning += ` The structure contains self-referential recursions.`;
-    if (time === "O(1)" && space === "O(1)") reasoning = `No scalable iteration or auxiliary data structures were detected. Constant time mapped.`;
+    // Adjust specific structural patterns seen in recursion + nested loops + halving Space
+    // (We fallback to this as our AST traversal improves heuristics vs Regex)
+    if (isRecursive && code.includes(' / 2') && maxLoopDepth > 0) {
+        time = "O(N log N)";
+        if (hasDynamicAllocation) space = "O(N)";
+    }
+
+    let reasoning = `Local AST parser mapped ${maxLoopDepth} nested loop scope(s).`;
+    if (hasSort) reasoning += ` A sorting method heavily influenced time scaling.`;
+    if (hasDynamicAllocation) reasoning += ` Scalable memory allocation elements (new Node, new Array[]) were identified.`;
+    if (isRecursive) reasoning += ` The syntax tree includes self-referential recursive method invocations.`;
+    if (time === "O(1)" && space === "O(1)") reasoning = `No scalable iterative logic or auxiliary structures found. Identified as constant behavior.`;
 
     return {
-        detectedLanguage: "Local AST Scanner",
+        detectedLanguage: "Tree-Sitter (WASM)",
         timeComplexity: time,
         spaceComplexity: space,
         explanation: reasoning
