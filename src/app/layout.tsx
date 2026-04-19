@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Outfit } from "next/font/google";
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -12,8 +12,8 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta-sans",
   subsets: ["latin"],
 });
 
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: "Complexity Analyzer",
   description: "AST-based high-performance code complexity analyzer",
   icons: {
-    icon: "/favicon.png",
+    icon: "/favicon.svg",
   },
 };
 
@@ -31,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} ${outfit.variable}`}>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} ${plusJakartaSans.variable}`}>
       <body>{children}</body>
     </html>
   );

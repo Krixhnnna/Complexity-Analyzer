@@ -244,13 +244,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [result, setResult] = useState<{
-
     detectedLanguage?: string;
     timeComplexity?: string;
     spaceComplexity?: string;
     explanation?: string;
     error?: string;
   } | null>(null);
+
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setCode(text);
+    } catch (err) {
+      console.error("Failed to read clipboard:", err);
+    }
+  };
 
   const handleEditorBeforeMount = (monaco: any) => {
     // Creating a custom theme to closely mimic the provided screenshot's colors
@@ -319,11 +327,11 @@ export default function Home() {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             aria-label="Toggle Menu"
           >
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
+            {/* Minimal line-based menu icon */}
+            <div className={`menu-icon-simple ${isSidebarOpen ? 'open' : ''}`}>
+              <span></span>
+              <span></span>
+            </div>
           </button>
         </header>
 
@@ -370,10 +378,10 @@ export default function Home() {
                 beforeMount={handleEditorBeforeMount}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 18,
-                  lineHeight: 30,
+                  fontSize: 18, 
+                  lineHeight: 28,
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                  padding: { top: 24, bottom: 24 },
+                  padding: { top: 24, bottom: 64 }, 
                   scrollBeyondLastLine: false,
                   wordWrap: "on",
                   renderValidationDecorations: "off",
@@ -382,10 +390,17 @@ export default function Home() {
                   contextmenu: false,
                   hideCursorInOverviewRuler: true,
                   overviewRulerLanes: 0,
-                  lineNumbersMinChars: 4,
+                  lineNumbersMinChars: 3,
                   stickyScroll: { enabled: false }
                 }}
               />
+              <button 
+                className="floating-paste-btn" 
+                onClick={handlePaste}
+                title="Paste from clipboard"
+              >
+                Paste Code
+              </button>
           </div>
           
           <div className="results-panel">
